@@ -2,7 +2,12 @@
 open System.IO
 open System.Text.RegularExpressions
 
-let PrintStatisticForUrl url =
+let findAllUrlInTex text =
+    let urlRegex = Regex("<a href\s*=\s*\"(https?://[^\"]+)\"\s*>", RegexOptions.Compiled)
+    [for m in urlRegex.Matches(text) -> m.Groups.[1].Value]
+
+
+let printStatisticForUrl url =
     let urlRegex = Regex("<a href\s*=\s*\"(https?://[^\"]+)\"\s*>", RegexOptions.Compiled)
     
     let DownloadPage (url : string) = 
@@ -21,13 +26,16 @@ let PrintStatisticForUrl url =
     let mainPageText = url |> DownloadPage |> Async.RunSynchronously
     
     match mainPageText with
-    | (_, false, errText) -> printfn "Error with main url! %s" errText
+    | (_, false, errText) -> 
+        printfn "Error with main url! %s" errText
+        false
     | (_, true, text) ->
-        let allSitesAndTexts = [for m in urlRegex.Matches(text) -> DownloadPage(m.Groups.[1].Value)] |> Async.Parallel |> Async.RunSynchronously
+        let allSitesAndTexts = [for u in findAllUrlInTex text -> DownloadPage(u)] |> Async.Parallel |> Async.RunSynchronously
         for el in allSitesAndTexts do
             match el with
             | (url, false, errText) -> printfn "Error with %s url! %s" url errText
             | (url, true, text) -> printfn "%s --- %d" url text.Length
+        true
 
 [<EntryPoint>]
 let main argv =
